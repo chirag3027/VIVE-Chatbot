@@ -1,6 +1,6 @@
 # Static Configuration Variables
 PAGE_TITLE = "Document Q&A Bot"  # Page title for the Streamlit app
-LOGO_FILENAME = "logo.png"  # Filename for the logo image to display
+LOGO_FILENAME = "vive.jpeg"  # Filename for the logo image to display
 SPREADSHEET_NAME = "Chatbot Feedback"  # Google Sheets document name
 INTERACTIONS_SHEET_NAME = "Interactions"  # Sheet name for storing Q&A pairs
 FEEDBACK_SHEET_NAME = "Feedback"  # Sheet name for storing user feedback
@@ -10,9 +10,11 @@ SEARCH_K = 5  # Number of relevant documents to retrieve
 MODEL_NAME_PRIMARY = "gpt-4-turbo"  # Preferred OpenAI model
 MODEL_NAME_FALLBACK = "gpt-3.5-turbo"  # Fallback OpenAI model
 MODEL_TEMPERATURE = 0  # Temperature setting for deterministic output
-DEFAULT_PROMPT = "You are a helpful assistant for sales agents. Simplify answers, provide examples and speak in clear language."
+DEFAULT_PROMPT = "You are a helpful assistant for a pharmaceutical sales and medical affairs team that frequently engages with doctors and healthcare professionals. Respond in a simple, clear way. Use friendly and precise language appropriate for healthcare professionals based in USA and Canada."
 NO_ANSWER_RESPONSE = "No answer found in the uploaded docs, please reach out to 'apoorv.kamra@gmail.com'"
+TITLE="Vive MedInfo Chatbot Demo"
 
+# Import necessary libraries
 import streamlit as st
 from langchain.chat_models import ChatOpenAI
 from langchain.chains import ConversationalRetrievalChain
@@ -30,16 +32,20 @@ from openai.error import AuthenticationError, InvalidRequestError
 from datetime import datetime
 import traceback
 
+# Set up the Streamlit UI and display the logo
+
 def initialize_app():
     try:
         st.set_page_config(page_title=PAGE_TITLE, layout="wide")
-        st.title("📄 Chat with Your Documents")
+        st.title(TITLE)
         logo_path = os.path.join(os.path.dirname(__file__), LOGO_FILENAME)
         if os.path.exists(logo_path):
             st.image(logo_path, width=120)
     except Exception as e:
         st.error("Failed to initialize the app.")
         st.exception(e)
+
+# Retrieve the OpenAI API key from secrets or user input
 
 def get_api_key():
     try:
@@ -57,6 +63,7 @@ def get_api_key():
         st.exception(e)
         st.stop()
 
+# Load the OpenAI language model with a fallback option
 @st.cache_resource(show_spinner=False)
 def load_llm(api_key):
     try:
@@ -70,6 +77,7 @@ def load_llm(api_key):
             st.exception(fallback_error)
             st.stop()
 
+# Initialize connection to Google Sheets
 @st.cache_resource(show_spinner=False)
 def initialize_sheets():
     try:
@@ -87,6 +95,8 @@ def initialize_sheets():
         st.exception(e)
         return None
 
+# Add headers to sheets if empty
+
 def prepare_sheets(sheets):
     try:
         if sheets["interactions"].row_count == 1:
@@ -96,6 +106,8 @@ def prepare_sheets(sheets):
     except Exception as e:
         st.warning("Error initializing Google Sheet rows.")
         st.exception(e)
+
+# Load and process uploaded documents into chunks
 
 def process_documents(uploaded_files):
     documents = []
@@ -124,6 +136,8 @@ def process_documents(uploaded_files):
         st.exception(e)
     return documents
 
+# Build the Q&A chain using the language model and uploaded documents
+
 def build_qa_chain(documents, api_key, llm):
     try:
         splitter = CharacterTextSplitter(chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP)
@@ -137,6 +151,8 @@ def build_qa_chain(documents, api_key, llm):
         st.error("Failed to build QA chain.")
         st.exception(e)
         st.stop()
+
+# Display document sources for the given answer
 
 def render_sources(sources):
     seen = set()
@@ -155,21 +171,22 @@ def render_sources(sources):
             st.warning("Error rendering a document source.")
             st.exception(e)
 
-# Main App Execution
-initialize_app()
-openai_api_key = get_api_key()
-llm = load_llm(openai_api_key)
-sheets = initialize_sheets()
+# Main App Execution Flow
+initialize_app()  # Set up page layout and UI
+openai_api_key = get_api_key()  # Retrieve OpenAI API key
+llm = load_llm(openai_api_key)  # Load the language model
+sheets = initialize_sheets()  # Connect to Google Sheets
 if sheets:
-    prepare_sheets(sheets)
+    prepare_sheets(sheets)  # Ensure sheets have headers
 
+# Upload section for documents
 uploaded_files = st.file_uploader("Upload documents", accept_multiple_files=True)
 
 if uploaded_files:
-    docs = process_documents(uploaded_files)
-    qa_chain = build_qa_chain(docs, openai_api_key, llm)
+    docs = process_documents(uploaded_files)  # Read and chunk documents
+    qa_chain = build_qa_chain(docs, openai_api_key, llm)  # Initialize Q&A chain
 
-    user_input = st.chat_input("Ask a question about your documents")
+    user_input = st.chat_input("Ask a question about your documents")  # User query input
     if user_input:
         try:
             full_input = f"{DEFAULT_PROMPT}\n\nQuestion: {user_input}"
@@ -182,7 +199,7 @@ if uploaded_files:
 
             if answer and sources:
                 with st.chat_message("assistant"):
-                    st.markdown(answer)
+                    st.markdown(answer)  # Display answer
                     if sheets: sheets["interactions"].append_row([timestamp, user_input, answer])
                     col1, col2 = st.columns(2)
                     with col1:
@@ -198,7 +215,7 @@ if uploaded_files:
                     with st.expander("📚 View sources for this answer"):
                         render_sources(sources)
             else:
-                st.chat_message("assistant").write(NO_ANSWER_RESPONSE)
+                st.chat_message("assistant").write(NO_ANSWER_RESPONSE)  # Fallback response
                 if sheets: sheets["interactions"].append_row([timestamp, user_input, NO_ANSWER_RESPONSE])
         except Exception as e:
             st.error("An error occurred while generating the answer.")
