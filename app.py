@@ -126,7 +126,8 @@ def get_api_key() -> str:
     Returns:
         The OpenAI API key as a string.
     """
-    key = st.secrets.get("OPENAI_API_KEY") or st.text_input("OpenAI API Key", type="password")
+    key = st.secrets.get("OPENAI_API_KEY") 
+    #or st.text_input("OpenAI API Key", type="password")
     if not key:
         # Prompt user that the key is mandatory
         st.warning("API Key is required to proceed.")
