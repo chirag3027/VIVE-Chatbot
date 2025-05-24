@@ -126,7 +126,10 @@ def get_api_key() -> str:
     Returns:
         The OpenAI API key as a string.
     """
-    key = st.secrets.get("OPENAI_API_KEY") 
+    key = os.environ.get("OPENAI_API_KEY")
+    # 2) Fallback to Streamlit secrets.toml (for Streamlit Cloud)
+    if not key:
+        key = st.secrets.get("OPENAI_API_KEY")
     #or st.text_input("OpenAI API Key", type="password")
     if not key:
         # Prompt user that the key is mandatory
