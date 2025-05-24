@@ -9,3 +9,4 @@ python-docx
 PyPDF
 gspread
 oauth2client
+langchain_openai
