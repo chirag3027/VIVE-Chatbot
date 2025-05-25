@@ -70,6 +70,15 @@ import io
 #                        Streamlit Configuration                              #
 ###############################################################################
 st.set_page_config(page_title=PAGE_TITLE, layout="wide")
+# ─── User-configurable defaults ────────────────────────────────────────────────
+# Let the user override the default prompt and temperature in the sidebar,
+# but default to the existing constants if they don’t touch them.
+custom_prompt = st.sidebar.text_area("Default prompt", value=DEFAULT_PROMPT)
+custom_temperature = st.sidebar.slider(
+    "Model temperature", min_value=0.0, max_value=1.0,
+   value=float(MODEL_TEMPERATURE), step=0.01
+)
+
 
 ###############################################################################
 #                              Sidebar Settings                               #
@@ -112,10 +121,10 @@ def load_llm(api_key: str) -> ChatOpenAI:
         An instance of ChatOpenAI ready for generating responses.
     """
     try:
-        return ChatOpenAI(model=MODEL_NAME_PRIMARY, temperature=MODEL_TEMPERATURE, api_key=api_key)
+        return ChatOpenAI(model=MODEL_NAME_PRIMARY, temperature=custom_temperature, api_key=api_key)
     except Exception:
         st.warning(f"Primary model failed, falling back to {MODEL_NAME_FALLBACK}")
-        return ChatOpenAI(model=MODEL_NAME_FALLBACK, temperature=MODEL_TEMPERATURE, api_key=api_key)
+        return ChatOpenAI(model=MODEL_NAME_FALLBACK, temperature=custom_temperature, api_key=api_key)
 
 
 def get_api_key() -> str:
@@ -323,7 +332,7 @@ if uploaded_files:
         st.chat_message('user').write(user_input)
 
         # 7) Generate answer using the chain
-        result = qa_chain({'question': f"{DEFAULT_PROMPT}\n\n{user_input}", 'chat_history': st.session_state['chat_history']})
+        result = qa_chain({'question': f"{custom_prompt}\n\n{user_input}", 'chat_history': st.session_state['chat_history']})
         answer = result.get('answer', '').strip()
         source_docs = result.get('source_documents', [])
         timestamp = datetime.now().strftime(TIMESTAMP_FORMAT)
@@ -335,6 +344,9 @@ if uploaded_files:
             and len(answer.split()) >= MIN_WORD_COUNT
             and answer != NO_ANSWER_RESPONSE
         )
+        if not valid:
+            answer = NO_ANSWER_RESPONSE
+            source_docs = []  # clear any sources so they won’t render
 
         if valid:
             # Append and render assistant answer
@@ -355,6 +367,7 @@ if uploaded_files:
                 # 9) Collapsible section to view sources
                 with st.expander('📚 Sources', expanded=False):
                     render_sources(source_docs, user_input)
+            
         else:
             # No valid context: fallback message
             st.session_state['chat_history'].append({'role': 'assistant', 'message': NO_ANSWER_RESPONSE})
